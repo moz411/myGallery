@@ -6,75 +6,87 @@
 #include "GameFramework/WorldSettings.h"
 #include "Containers/Set.h"
 
-TArray<FVector> GeneratePoints(const FTransform& Plane, const FBox2D& PlaneBounds,
-	double PointsPerUnitX, double PointsPerUnitY, double WorldToMeters = 100.0)
+static FQuat MakeQuatWithZAlignedToNormal(const FVector& R, const FVector& U, bool bFlipNormal=false)
 {
-	const FVector PlaneRight = Plane.GetRotation().GetRightVector();
-	const FVector PlaneUp = Plane.GetRotation().GetUpVector();
-	const FVector PlaneSize = FVector(PlaneBounds.GetSize().X, PlaneBounds.GetSize().Y, 0.0);
-	const FVector PlaneBottomLeft = Plane.GetLocation() - PlaneRight * PlaneSize.X * 0.5f - PlaneUp * PlaneSize.Y * 0.5f;
+	// N = R x U (sens MRUK). Optionnellement inverser si on veut orienter vers l'intérieur.
+	FVector N = FVector::CrossProduct(R, U).GetSafeNormal();
+	if (bFlipNormal) N *= -1.f;
 
-	const int32 PointsX = FMath::Max(FMathf::Ceil(PointsPerUnitX * PlaneSize.X) / WorldToMeters, 1);
-	const int32 PointsY = FMath::Max(FMathf::Ceil(PointsPerUnitY * PlaneSize.Y) / WorldToMeters, 1);
-
-	const FVector2D Stride{ PlaneSize.X / (PointsX + 1), PlaneSize.Y / (PointsY + 1) };
-
-	TArray<FVector> Points;
-	Points.SetNum(PointsX * PointsY);
-
-	for (int Iy = 0; Iy < PointsY; ++Iy)
+	// Tangent préféré = R (mais doit être non colinéaire à N)
+	FVector X = R - FVector::DotProduct(R, N) * N; // projeter R dans le plan tangent
+	if (!X.Normalize())
 	{
-		for (int Ix = 0; Ix < PointsX; ++Ix)
-		{
-			const float Dx = Ix * Stride.X;
-			const float Dy = Iy * Stride.Y;
-			const FVector Point = PlaneBottomLeft + Dx * PlaneRight + Dy * PlaneUp;
-			Points[Ix + Iy * PointsX] = Point;
-		}
+		// Si R~//N, fallback sur U
+		X = U - FVector::DotProduct(U, N) * N;
+		X.Normalize(); // plan MRUK bien formé -> doit réussir
 	}
 
-	return Points;
+	const FVector Y = FVector::CrossProduct(N, X); // base droitière (X,Y,Z=N)
+	const FMatrix M(FMatrix::Identity);
+	FMatrix Basis(
+		FPlane(X, 0),  // X -> 1ère colonne
+		FPlane(Y, 0),  // Y -> 2ème
+		FPlane(N, 0),  // Z -> 3ème
+		FPlane(0,0,0,1)
+	);
+	return Basis.ToQuat();
 }
 
-TArray<FVector> UMRUKExtensions::ComputeRoomBoxGridSurfaceOnly(
-	const AMRUKRoom* Room, int32 MaxPointsCount, double PointsPerUnitX, double PointsPerUnitY)
+// --- GeneratePoints -> retourne des FTransform (Loc=P, Rot=Z=Normal du plan) ---
+TArray<FTransform> GeneratePoints(const FTransform& Plane, const FBox2D& PlaneBounds,
+    double PointsPerUnitX, double PointsPerUnitY, double WorldToMeters)
 {
-	TArray<FVector> AllPoints;
+	const FQuat   Q = Plane.GetRotation();
+	const FVector R = Q.GetRightVector();      // axe X du plan MRUK
+	const FVector U = Q.GetUpVector();         // axe Y du plan MRUK
 
-	const double WorldToMeters = Room->GetWorld()->GetWorldSettings()->WorldToMeters;
-	for (const AMRUKAnchor* WallAnchor : Room->WallAnchors)
+	const FVector2D Size = PlaneBounds.GetSize();
+	const int32 NX = FMath::Max(1, FMath::CeilToInt(PointsPerUnitX * (Size.X / WorldToMeters)) - 1);
+	const int32 NY = FMath::Max(1, FMath::CeilToInt(PointsPerUnitY * (Size.Y / WorldToMeters)) - 1);
+	const FVector2D Stride(Size.X / (NX + 1), Size.Y / (NY + 1));
+
+	const FVector BL = Plane.GetLocation() - R * (Size.X * 0.5f) - U * (Size.Y * 0.5f);
+	const FQuat Qplane = MakeQuatWithZAlignedToNormal(R, U ,false);
+
+	TArray<FTransform> Xforms;
+	Xforms.Reserve(NX * NY);
+
+	for (int32 j=0; j<NY; ++j)
+	for (int32 i=0; i<NX; ++i)
 	{
-
-		const auto Points = GeneratePoints(WallAnchor->GetTransform(), WallAnchor->PlaneBounds,
-			PointsPerUnitX, PointsPerUnitY, WorldToMeters);
-		AllPoints.Append(Points);
+		const float dx = (i + 1) * Stride.X;
+		const float dy = (j + 1) * Stride.Y;
+		const FVector P = BL + dx * R + dy * U;       // point sur le plan MRUK
+		Xforms.Emplace(Qplane, P, FVector(.1f));      // Z local = normale du plan
 	}
-	// Ceiling
-	if (const AMRUKAnchor* CeilingAnchor = Room->CeilingAnchor)
+	return Xforms;
+}
+
+// --- ComputeRoomBoxGridSurfaceOnly -> TArray<FTransform> ----------------------
+TArray<FTransform> UMRUKExtensions::ComputeRoomBoxGridSurfaceOnly(
+    const AMRUKRoom* Room, int32 MaxPointsCount, double PointsPerUnitX, double PointsPerUnitY)
+{
+	TArray<FTransform> All;
+	if (!Room || !Room->GetWorld() || !Room->GetWorld()->GetWorldSettings()) return All;
+
+	const double W2M = Room->GetWorld()->GetWorldSettings()->WorldToMeters;
+
+	TArray<const AMRUKAnchor*> Anchors;
+	Anchors.Append(Room->WallAnchors);
+	if (Room->CeilingAnchor) Anchors.Add(Room->CeilingAnchor);
+	if (Room->FloorAnchor)   Anchors.Add(Room->FloorAnchor);
+
+	for (const AMRUKAnchor* A : Anchors)
 	{
-		const auto Points = GeneratePoints(
-			CeilingAnchor->GetTransform(),
-			CeilingAnchor->PlaneBounds,
-			PointsPerUnitX,
-			PointsPerUnitY,
-			WorldToMeters);
-
-		AllPoints.Append(Points);
+		if (!A) continue;
+		All.Append(GeneratePoints(A->GetTransform(), A->PlaneBounds,
+		                          PointsPerUnitX, PointsPerUnitY, W2M));
 	}
 
-	// Floor
-	if (const AMRUKAnchor* FloorAnchor = Room->FloorAnchor)
+	if (MaxPointsCount > 0 && All.Num() > MaxPointsCount)
 	{
-		const auto Points = GeneratePoints(
-			FloorAnchor->GetTransform(),
-			FloorAnchor->PlaneBounds,
-			PointsPerUnitX,
-			PointsPerUnitY,
-			WorldToMeters);
-
-		AllPoints.Append(Points);
+		All.Sort([](const FTransform&, const FTransform&){ return FMath::FRand() < 0.5f; });
+		All.SetNum(MaxPointsCount, false);
 	}
-	
-
-	return AllPoints;
+	return All;
 }
