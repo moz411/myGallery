@@ -22,7 +22,7 @@ public:
 	static TArray<FVector> ComputeRoomBoxGridSurfaceOnly(
 	const AMRUKRoom* Room,
 	int32 MaxPointsCount = 1000,
-	double PointsPerUnitX = 1.0,
-	double PointsPerUnitY = 1.0
+	double PointsPerUnitX = 2.0,
+	double PointsPerUnitY = 2.0
 	);
 };

@@ -6,7 +6,8 @@
 #include "GameFramework/WorldSettings.h"
 #include "Containers/Set.h"
 
-TArray<FVector> GeneratePoints(const FTransform& Plane, const FBox2D& PlaneBounds, double PointsPerUnitX, double PointsPerUnitY, double WorldToMeters = 100.0)
+TArray<FVector> GeneratePoints(const FTransform& Plane, const FBox2D& PlaneBounds,
+	double PointsPerUnitX, double PointsPerUnitY, double WorldToMeters = 100.0)
 {
 	const FVector PlaneRight = Plane.GetRotation().GetRightVector();
 	const FVector PlaneUp = Plane.GetRotation().GetUpVector();
@@ -25,8 +26,8 @@ TArray<FVector> GeneratePoints(const FTransform& Plane, const FBox2D& PlaneBound
 	{
 		for (int Ix = 0; Ix < PointsX; ++Ix)
 		{
-			const float Dx = (Ix + 1) * Stride.X;
-			const float Dy = (Iy + 1) * Stride.Y;
+			const float Dx = Ix * Stride.X;
+			const float Dy = Iy * Stride.Y;
 			const FVector Point = PlaneBottomLeft + Dx * PlaneRight + Dy * PlaneUp;
 			Points[Ix + Iy * PointsX] = Point;
 		}
