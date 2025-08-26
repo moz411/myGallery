@@ -20,6 +20,9 @@ public:
 	 */
 	UFUNCTION(BlueprintCallable, Category="myGallery|MRUtilityKit|Grid")
 	static TArray<FVector> ComputeRoomBoxGridSurfaceOnly(
-	const AMRUKRoom* Room, int32 MaxPointsCount, double PointsPerUnitX, double PointsPerUnitY
+	const AMRUKRoom* Room,
+	int32 MaxPointsCount = 1000,
+	double PointsPerUnitX = 1.0,
+	double PointsPerUnitY = 1.0
 	);
 };
