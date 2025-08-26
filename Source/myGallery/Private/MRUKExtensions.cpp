@@ -49,6 +49,32 @@ TArray<FVector> UMRUKExtensions::ComputeRoomBoxGridSurfaceOnly(
 			PointsPerUnitX, PointsPerUnitY, WorldToMeters);
 		AllPoints.Append(Points);
 	}
+	// Ceiling
+	if (const AMRUKAnchor* CeilingAnchor = Room->CeilingAnchor)
+	{
+		const auto Points = GeneratePoints(
+			CeilingAnchor->GetTransform(),
+			CeilingAnchor->PlaneBounds,
+			PointsPerUnitX,
+			PointsPerUnitY,
+			WorldToMeters);
+
+		AllPoints.Append(Points);
+	}
+
+	// Floor
+	if (const AMRUKAnchor* FloorAnchor = Room->FloorAnchor)
+	{
+		const auto Points = GeneratePoints(
+			FloorAnchor->GetTransform(),
+			FloorAnchor->PlaneBounds,
+			PointsPerUnitX,
+			PointsPerUnitY,
+			WorldToMeters);
+
+		AllPoints.Append(Points);
+	}
+	
 
 	return AllPoints;
 }
