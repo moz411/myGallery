@@ -3,6 +3,16 @@
 	"EngineAssociation": "5.5",
 	"Category": "",
 	"Description": "",
+	"Modules": [
+		{
+			"Name": "myGallery",
+			"Type": "Runtime",
+			"LoadingPhase": "Default",
+			"AdditionalDependencies": [
+				"MRUtilityKit"
+			]
+		}
+	],
 	"Plugins": [
 		{
 			"Name": "OculusXR",
