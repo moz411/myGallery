@@ -6,7 +6,7 @@
 #include "GameFramework/WorldSettings.h"
 #include "Containers/Set.h"
 
-static FQuat MakeQuatWithZAlignedToNormal(const FVector& R, const FVector& U, bool bFlipNormal=false)
+static FQuat MakeQuatWithZAlignedToNormal(const FVector& R, const FVector& U, bool bFlipNormal=true)
 {
 	// N = R x U (sens MRUK). Optionnellement inverser si on veut orienter vers l'intérieur.
 	FVector N = FVector::CrossProduct(R, U).GetSafeNormal();

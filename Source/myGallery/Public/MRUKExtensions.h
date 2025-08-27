@@ -18,7 +18,7 @@ public:
 	 * PointsPerUnitX/Y : densité par mètre dans les axes locaux du plan MRUK.
 	 * MergeToleranceFactor : fraction du pas local pour fusionner les doublons (0.2–0.6).
 	 */
-	UFUNCTION(BlueprintCallable, Category="myGallery|MRUtilityKit|Grid")
+	UFUNCTION(BlueprintCallable, Category="myGallery")
 	static TArray<FTransform> ComputeRoomBoxGridSurfaceOnly(
 		const AMRUKRoom* Room,
 		int32 MaxPointsCount = 1000,
