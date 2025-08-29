@@ -11,7 +11,7 @@ public class myGallery : ModuleRules
 		PublicDependencyModuleNames.AddRange(new string[] { "Core", "CoreUObject", 
 			"Engine", "InputCore", "MRUtilityKit", "OculusXRAnchors", "ProceduralMeshComponent" });
 
-		PrivateDependencyModuleNames.AddRange(new string[] {  });
+		PrivateDependencyModuleNames.AddRange(new string[] { "EyeTracker" });
 
 		// Uncomment if you are using Slate UI
 		// PrivateDependencyModuleNames.AddRange(new string[] { "Slate", "SlateCore" });
